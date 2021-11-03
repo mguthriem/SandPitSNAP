@@ -1,0 +1,12 @@
+﻿# v1.0 SNAP state list,,,,,,,,
+#state[0] records detector settings,,,,,,,,
+#state[1] records centre wavelength,,,,,,,,
+"#state[2] records guide status (1=in, 0 = out)",,,,,,,,
+#state[3] is currently not used…it's a spare,,,,,,,,
+#Human Readable Name,arc1_west,arc2_east,centre wave,guide status,state[0],state[1],state[2],state[3]
+DAC 65/105 with guide,65,105,2.4,1,0,0,1,0
+DAC 65/105 no guide,65,105,2.4,0,0,0,0,0
+classic 90/90 with guide,90,90,2.4,1,1,0,1,0
+classic 90/90 no guide,90,90,2.4,0,1,0,0,0
+All low 50/50 with guide,50,50,2.4,1,2,0,1,0
+All high 105/105 no guide,105,105,2.4,0,3,0,0,0
