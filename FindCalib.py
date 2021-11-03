@@ -3,6 +3,7 @@
 # M. Guthrie 5 OCT 2021
 #
 # 6 OCT 2021 M. Guthrie modified to work with fits of peak across up to 18 banks
+# 8 NOV 2021 M. Guthrie some more mods.
 
 
 from mantid.simpleapi import *
