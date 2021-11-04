@@ -1,7 +1,6 @@
-# import mantid algorithms, numpy and matplotlib
-#from mantid.simpleapi import *
-#import matplotlib.pyplot as plt
-#import numpy as np
+# mgutilities is a collection of functions that are useful to have access to from
+# multiple different applications
+
 from mantid.simpleapi import *
 import json
 import numpy as np
@@ -450,57 +449,202 @@ def iceVol(a):
 
   return p_hem
 
-def getSNAPStateID(arc1,arc2,wav,guide,spare):
+def getSNAPStateID(arc1,arc2,wav,tol,guide,spare):
+  #This function will return instrument state ID a short string of integers
+  #encoding the main experimental parameters of the SNAP instrument, which must be provided
+  #There are two types of parameters.
+  #
+  #Firstly, floats, these can be said to match a configuration if they are within a specified
+  #tolerance. At present these include
+  #  arc1 = EAST DETECTOR BANK ANGLE (deg)
+  #  arc2 = WEST DETECTOR BANK ANGLE (deg)
+  #  wav = wavelength setting (Angstrom)
+  #
+  # Secondly, Integers. These must match exactly. Currently, the only parameter like this is 
+  # guide = guide_status 0 = no guide, 1 = new guide, 2 = old guide
+  
+  # The SNAP state definitions live in a simple csv file stored in SNS/SNAP/shared/Calibration
+  # The name is SNAPStateListYYYYMMDD.csv
+  # This function shall always choose the most recent. This allow for the possibility that a 
+  # new state can be defined at any time and added to the list
+  # 
+  # 
+  # float parameters:
+  #arc1 = arc angle of West bank (deg)
+  #arc2 = arc angle of East bank (deg)
+  #wav = central wavelength (Ang)
+  #tol = list of floats giving absolute tolerance for matching arc1,arc2 and wav (in units above)
+  
+  #integer parameters:
+  #guide = guide status. 0 = no guide, 1 = new guide, 2 = old guide
 
-    import glob
-    import os
-    import os.path, time
-    from datetime import datetime
-    #Need a function that will return instrument state ID a short string of integers
-    #the main experimental parameters of the SNAP instrument, which must be provided
-    #the numbers needed are;
-    #  arc1 = EAST DETECTOR BANK ANGLE (deg)
-    #  arc2 = WEST DETECTOR BANK ANGLE (deg)
-    #  wav = wavelength setting (Angstrom)
-    # guide = guide status 1 = in 0 = out
-    # spare == 0 is an extra parameter in case we need it in the future (maybe SE?)
+  #spare is exactly what it sounds like. not used at present.
 
-    # The SNAP state definitions live in a simple csv file stored in SNS/SNAP/shared/Calibration
-    # The name is SNAPStateListYYYYMMDD.csv
-    # This function shall always choose the most recent. This allow for the possibility that a 
-    # new state can be defined at any time and added to the list
-    # 
+  import glob
+  import os
+  import os.path, time
+  from datetime import datetime
+  
 
-    # First task is to find the most recent StateList
-    pattern = '/SNS/SNAP/shared/Calibration/SNAPStateList*.csv'
-    FindMostRecent = False
-
-    refDate = datetime.now().timestamp()
-
-    for fname in glob.glob(pattern, recursive=True):
-        ShortestTimeDifference = 10000000000 # a large number of seconds
-        if os.path.isfile(fname):
-            #rint(fname)
-            #print("Created: %s" % time.ctime(os.path.getctime(fname)))
-            #print('epoch:',os.path.getctime(fname))
-            #print('refdate epoch:',refDate)
-            delta = refDate - os.path.getctime(fname)
-            #print('difference:',delta)
-            if delta <= ShortestTimeDifference:
-                MostRecentFile = fname
-                ShortestTimeDifference = delta
-    if ShortestTimeDifference == 10000000000:
-        print('no matching file found')
+  # First task is to find the most recent StateList
+  pattern = '/SNS/SNAP/shared/Calibration/SNAPStateList*.csv'
+  #FindMostRecent = False
+  refDate = datetime.now().timestamp()
+  for fname in glob.glob(pattern, recursive=True):
+    ShortestTimeDifference = 10000000000 # a large number of seconds
+    if os.path.isfile(fname):
+      #rint(fname)
+      #print("Created: %s" % time.ctime(os.path.getctime(fname)))
+      #print('epoch:',os.path.getctime(fname))
+      #print('refdate epoch:',refDate)
+      delta = refDate - os.path.getctime(fname)
+      #print('difference:',delta)
+      if delta <= ShortestTimeDifference:
+        MostRecentFile = fname
+        ShortestTimeDifference = delta
+  if ShortestTimeDifference == 10000000000:
+    print('no matching file found')
+  else:
+    print('Most recent matching state file:',fname)
+    print('Created: %s'% time.ctime(os.path.getctime(fname)))
+    #pen and read statefile
+  comments = []
+  dataLines = []
+  f = open(fname,'r')
+  lines = f.readlines()
+  stateHeader = []
+  stateHRName = []
+  stateFloat = []
+  stateInt = []
+  stateLabel = []
+  for line in lines:
+    if line[0]=='#':
+      stateHeader.append(line)
     else:
-        print('Most recent matching file:',fname)
-        print('Created: %s'% time.ctime(os.path.getctime(fname)))
-        print('Will use this one')
-            #print(refDate-vvos.path.getctime(fname))
-            #timestr = SetUpDate.strftime("_%d-%b-%Y-%H%M%S")
-   # states = np.loadtxt(fname,delimiter=",", skiprows = 6,usecols=[1:])# array of floats
-    #refState = np.array([arc1,arc2,wav,guide,spare])
-    #delta = states-refState
-    #print(delta)
-    #print(np.sum(delta,axis=0))
-    #print(np.sum(delta,axis=1))
+      splitLine = line.strip().split(',')
+      #print(splitLine)
+      stateHRName.append(splitLine[0])
+      stateFloat.append([float(splitLine[1]),float(splitLine[2]),float(splitLine[3])])
+      stateInt.append([splitLine[4]])
+      stateLabel.append(splitLine[5:9])
+      #print(splitLine[5:8])
+  #determine if there is a matching pre-defined state
+  
+  #first check: float parameters are within tolerance
+  statePars = np.array(stateFloat,dtype=float)
+  currentPars = np.array([arc1,arc2,wav],dtype=float)
+  tolerance = np.array([tol],dtype=float)
+  stateDiff = np.subtract(tolerance,np.abs(np.subtract(statePars,currentPars)))
+  floatMatch = stateDiff>=0 # elements will be negative if out of tolerance
+
+  #second check: that integer parameters match exactly
+  statePars = np.array(stateInt,dtype=int)
+  currentPars = np.array([guide],dtype=int)
+  stateDiff = np.subtract(statePars,currentPars)
+  intMatch = stateDiff==0 #indicates exact match
+
+  #combine both checks
+  fullMatch = np.concatenate((floatMatch,intMatch),axis=1)
+  
+  #confirm if there is a matching pre-defined state and, if not, allow option to create a new one
+  (nState,npars) = fullMatch.shape
+  for i in range(nState):
+    if np.all(fullMatch[i]):
+      #print('statelabel is: ',stateLabel[i])
+      SNAPState = ''.join(stateLabel[i][:])
+      print('match found for state:',stateHRName[i],'\n with stateID:',SNAPState)
+      return SNAPState
+  SNAPState = '0000' #convey that no matching state was found
+  return SNAPState  
+
+def createSNAPStateID(shortName,arc1,arc2,wav,guide):
+  #This function will find the most recent SNAP StateList, make a copy,
+  # with the new state appended. 
+
+  import glob
+  import os
+  import os.path, time
+  from datetime import datetime
+  
+  #use supplied info to create string containing new state information
+
+  stateString = shortName +'::wavelength=' + str(wav)
+  if guide == 0:
+    stateString = stateString + '::NO guide,'
+  elif guide ==1:
+    stateString = stateString + '::with NEW guide,'
+  elif guide ==2:
+    stateString = stateString + '::with OLD guide,'
+
+  stateString = stateString + str(arc1) + ',' + str(arc2) + ',' +str(wav) + ',' +str(guide) +','
+  print(stateString)
+  #this contains everything other than the state ID itself
+
+  # Next need to find the most recent StateList
+  pattern = '/SNS/SNAP/shared/Calibration/SNAPStateList*.csv'
+  refDate = datetime.now().timestamp()
+  for fname in glob.glob(pattern, recursive=True):
+    ShortestTimeDifference = 10000000000 # a large number of seconds
+    if os.path.isfile(fname):
+      #rint(fname)
+      #print("Created: %s" % time.ctime(os.path.getctime(fname)))
+      #print('epoch:',os.path.getctime(fname))
+      #print('refdate epoch:',refDate)
+      delta = refDate - os.path.getctime(fname)
+      #print('difference:',delta)
+      if delta <= ShortestTimeDifference:
+        MostRecentFile = fname
+        ShortestTimeDifference = delta
+  if ShortestTimeDifference == 10000000000:
+    print('no matching file found')
+  else:
+    print('Most recent matching state file:',fname)
+    print('Created: %s'% time.ctime(os.path.getctime(fname)))
+    #open and read statefile
+  f = open(fname,'r')
+  lines = f.readlines()
+  stateHeader = []
+  stateHRName = []
+  stateFloat = []
+  stateInt = []
+  stateLabel = []
+  for line in lines:
+    if line[0]=='#':
+      stateHeader.append(line)
+    else:
+      splitLine = line.strip().split(',')
+      #print(splitLine)
+      stateHRName.append(splitLine[0])
+      stateFloat.append([float(splitLine[1]),float(splitLine[2]),float(splitLine[3])])
+      stateInt.append([splitLine[4]])
+      stateLabel.append(splitLine[5:9])
+      #print(splitLine[5:8])
+  #determine if there is a matching pre-defined state
+  
+  # #first check: float parameters are within tolerance
+  # statePars = np.array(stateFloat,dtype=float)
+  # currentPars = np.array([arc1,arc2,wav],dtype=float)
+  # tolerance = np.array([tol],dtype=float)
+  # stateDiff = np.subtract(tolerance,np.abs(np.subtract(statePars,currentPars)))
+  # floatMatch = stateDiff>=0 # elements will be negative if out of tolerance
+
+  # #second check: that integer parameters match exactly
+  # statePars = np.array(stateInt,dtype=int)
+  # currentPars = np.array([guide],dtype=int)
+  # stateDiff = np.subtract(statePars,currentPars)
+  # intMatch = stateDiff==0 #indicates exact match
+
+  # #combine both checks
+  # fullMatch = np.concatenate((floatMatch,intMatch),axis=1)
+  
+  # #confirm if there is a matching pre-defined state and, if not, allow option to create a new one
+  # (nState,npars) = fullMatch.shape
+  # for i in range(nState):
+  #   if np.all(fullMatch[i]):
+  #     #print('statelabel is: ',stateLabel[i])
+  #     SNAPState = ''.join(stateLabel[i][:])
+  #     print('match found for state:',stateHRName[i],'\n with stateID:',SNAPState)
+  #     return SNAPState
+  # SNAPState = '0000' #convey that no matching state was found
+  return   
 
