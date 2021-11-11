@@ -557,94 +557,213 @@ def getSNAPStateID(arc1,arc2,wav,tol,guide,spare):
   SNAPState = '0000' #convey that no matching state was found
   return SNAPState  
 
-def createSNAPStateID(shortName,arc1,arc2,wav,guide):
+def checkSNAPState(floatPar,intPar):
   #This function will find the most recent SNAP StateList, make a copy,
   # with the new state appended. 
 
+  #import glob
+  import os
+  import time
+  
+  #import os.path, time
+  from datetime import datetime, date
+  
+  #getConfigDict(FName)
+  
+  #Find the most recent StateDict and read it
+  print('\nLooking up most recent State Dictionary...')
+  fname = findMostRecentFile('/SNS/SNAP/shared/Calibration/SNAPStateDict*.json') #returns most recent file matching arg
+  stateDict = getConfigDict(fname)
+  #step through float variables in order, check for a match, if this isn't found append new value
+  #while processing generate stateID and check if it's a new one.
+
+  stateStr = []
+  floatStateID = ''
+  newStatePar = 0
+  for i in range(len(floatPar)): 
+    key = stateDict["floatParameterOrder"][i] #should be key of i-th parameter
+    matchVar = floatPar[i]
+    matchingKeyPars,keyDiff = hitWithinTol(stateDict,key,matchVar)
+    #matchingKeyPars is a boolean array of length keyLen that will be true for
+    #an element that matches matchVar within tolerance specified in stateDict 
+    if np.any(matchingKeyPars):
+      #case where there is a matching value 
+      keyID = np.where(matchingKeyPars)[0][0]
+      #print('Found match:',keyID)
+      #totalHits += 1
+      stateStr.append('%.1f'%(stateDict[key][keyID]))
+    else:
+      #case where no matching values
+      stateDict[key].append(matchVar) #append as new value to state item
+      keyID = keyDiff.shape[0]
+      closestMatchIndx = np.argmin(keyDiff)
+      print('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      print('WARNING: no matching value for %s found in SNAP Dictionary'%(key))
+      print('Input value:%.2f. Closest match: %.2f, differing by %.4f'%(matchVar,stateDict[key][closestMatchIndx],keyDiff[closestMatchIndx]))
+      print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      #print('No match created new state parameter value:',keyID)
+      stateStr.append('%.1f'%(matchVar))
+      newStatePar += 1
+    floatStateID += str(keyID)
+ 
+  # now step through integer parameters and check for matches, which must be exact
+  # they must also be defined, so if there's no match something's gone wrong
+  
+  intStateID = ''
+  for i in range(len(intPar)): 
+    key = stateDict["intParameterOrder"][i] 
+    matchVar = intPar[i]
+    matchingKeyPars,keyLen = hitExact(stateDict,key,matchVar)
+    if np.any(matchingKeyPars):
+      keyID = np.where(matchingKeyPars)[0][0]
+      #totalHits += 1
+    else:
+      print('ERROR: Undefined value for integer state parameter:', key)
+    
+    if i==0:
+      guideStatus = keyID
+    intStateID += str(keyID)
+
+  if guideStatus == 0:
+    stateStr.append('NO guide')
+  elif guideStatus ==1:
+    stateStr.append('NEW guide')
+  elif guideStatus ==2:
+    stateStr.append('OLD guide')    
+  provisionalStateID = floatStateID + '-' + intStateID
+
+  #If supplied values don't match SNAP Dictionary, may want to create new dictionary with these included 
+
+  if newStatePar == 0:
+    print('State consistent with SNAP Dictionary')
+  else:
+    togCreateNewDict = input('\nNon-Dictionary values found. Add new values to SNAP Dictionary? (y/[n])\n'\
+      '(n.b. only possible if you are an instrument scientist): ')
+    if togCreateNewDict.lower() == 'y':
+      #print('Adding new default values to SNAP Dictionary')
+      now = date.today()
+      newDictFile = '/SNS/SNAP/shared/Calibration/SNAPStateDict_' + now.strftime("%Y%m%d") + '.json'
+      with open(newDictFile, "w") as outfile:
+        json.dump(stateDict, outfile)
+      print('\nCreated:' + newDictFile)
+    else:
+      pass #default is to move on without doing anything.
+  
+  #As a final step, confirm if present state is a defined SNAP state and, if not, allow option to create new state
+  fnameStateList = findMostRecentFile('/SNS/SNAP/shared/Calibration/SNAPStateList_*.txt')
+
+  fin = open(fnameStateList,'r')
+  lines = fin.readlines()
+  stateIDMatch = False
+  for index,line in enumerate(lines):
+    if index == 0:
+      pass # Version number of state list, not used
+    elif line.strip()[0]=='#':
+      pass # This is just a comment, not used.
+    else:
+      stateID = line.strip()[0:7]
+      if provisionalStateID==stateID:
+        print('Match found for state:',line)
+        stateIDMatch = True
+        fin.close()
+        break
+  
+  
+
+  if not stateIDMatch:
+    print('Current state does not exist in State List')
+    togCreateNewList=input('Create new state (y/[n])?')
+    if togCreateNewList.lower()=='y':
+      now = date.today()
+      newListFile = '/SNS/SNAP/shared/Calibration/SNAPStateList_' + now.strftime("%Y%m%d") + '.txt'
+      fout = open(newListFile,'w')
+      fout.writelines(lines)#copy existing state ID's to new file
+      acceptableName = False
+      while not acceptableName:
+        shortTitle = input('provide short (up to 15 character) title for state: ')
+        shortTitle = shortTitle[0:15].ljust(15)
+        confirm = input('confirm title: '+shortTitle+' ([y]/n): ')
+        if confirm.lower()=='y':
+          acceptableName=True
+      
+      newStateStr = provisionalStateID + '::' + \
+                    shortTitle + '::' + \
+                    '%s/%s::'%(stateStr[0],stateStr[1]) + \
+                    'wavelength=%s::'%(stateStr[2]) + \
+                    stateStr[4] + '\n'
+      fout.write(newStateStr)
+      fout.close()
+      print('Created updated state list:',newListFile)
+      print('New state:',newStateStr)
+    provisionalStateID = '' #no match and no new ID created
+
+
+  return provisionalStateID  
+
+def hitWithinTol(stateDict,key,matchPar):
+#checks list item "key" in stateDict for values that match 'matchPar' within
+# tolerance that is specified in stateDict.
+# returns a boolean array of size equal to list item "key" that is true where
+#there is a hit.
+  keyPars = np.array(stateDict[key])
+  keyLen = keyPars.shape[0]
+  keyOrder = stateDict['floatParameterOrder'].index(key)
+  keyTol = stateDict['tolerance'][keyOrder]
+  #print('HitWithinTol#############################')
+  #print('for key:',key)
+  #print('keyPars:',keyPars)
+  #print('tol:',keyTol)
+  keyDiff = np.abs(matchPar-keyPars)
+  keyDiffTol = keyTol-keyDiff #shall be negative if keyPar is > keyTol
+  #print(keyDiff)
+  matchingKeyPars = keyDiffTol>=0
+  
+  return matchingKeyPars,keyDiff
+
+def hitExact(stateDict,key,matchPar):
+#checks list item "key" in stateDict for values that exactly match 'matchPar' 
+#returns a boolean array of size equal to list item "key" that is true where
+#there is a hit.
+  keyPars = np.array(stateDict[key])
+  keyLen = keyPars.shape[0]
+  #keyOrder = stateDict['floatParameterOrder'].index(key)
+  #keyTol = stateDict['tolerance'][keyOrder]
+  #print('hitExact#############################')
+  #print('for key:',key)
+  #print('keyPars:',keyPars)
+  #print('tol:',keyTol)
+  keyDiff = np.abs(matchPar-keyPars) #shall be exactly zero if keyPar matches matchPar
+  #print(keyDiff)
+  matchingKeyPars = keyDiff==0
+  #print(matchingKeyPars)
+  return matchingKeyPars,keyLen
+
+def findMostRecentFile(pattern):
   import glob
   import os
-  import os.path, time
+  import time
+  #import os.path, time
   from datetime import datetime
-  
-  #use supplied info to create string containing new state information
-
-  stateString = shortName +'::wavelength=' + str(wav)
-  if guide == 0:
-    stateString = stateString + '::NO guide,'
-  elif guide ==1:
-    stateString = stateString + '::with NEW guide,'
-  elif guide ==2:
-    stateString = stateString + '::with OLD guide,'
-
-  stateString = stateString + str(arc1) + ',' + str(arc2) + ',' +str(wav) + ',' +str(guide) +','
-  print(stateString)
-  #this contains everything other than the state ID itself
-
-  # Next need to find the most recent StateList
-  pattern = '/SNS/SNAP/shared/Calibration/SNAPStateList*.csv'
+  ShortestTimeDifference = 10000000000 # a large number of seconds
   refDate = datetime.now().timestamp()
   for fname in glob.glob(pattern, recursive=True):
-    ShortestTimeDifference = 10000000000 # a large number of seconds
+    
     if os.path.isfile(fname):
-      #rint(fname)
+      #print(fname)
       #print("Created: %s" % time.ctime(os.path.getctime(fname)))
       #print('epoch:',os.path.getctime(fname))
       #print('refdate epoch:',refDate)
       delta = refDate - os.path.getctime(fname)
       #print('difference:',delta)
       if delta <= ShortestTimeDifference:
-        MostRecentFile = fname
+        mostRecentFile = fname
         ShortestTimeDifference = delta
   if ShortestTimeDifference == 10000000000:
     print('no matching file found')
+    mostRecentFile=''
   else:
-    print('Most recent matching state file:',fname)
-    print('Created: %s'% time.ctime(os.path.getctime(fname)))
-    #open and read statefile
-  f = open(fname,'r')
-  lines = f.readlines()
-  stateHeader = []
-  stateHRName = []
-  stateFloat = []
-  stateInt = []
-  stateLabel = []
-  for line in lines:
-    if line[0]=='#':
-      stateHeader.append(line)
-    else:
-      splitLine = line.strip().split(',')
-      #print(splitLine)
-      stateHRName.append(splitLine[0])
-      stateFloat.append([float(splitLine[1]),float(splitLine[2]),float(splitLine[3])])
-      stateInt.append([splitLine[4]])
-      stateLabel.append(splitLine[5:9])
-      #print(splitLine[5:8])
-  #determine if there is a matching pre-defined state
-  
-  # #first check: float parameters are within tolerance
-  # statePars = np.array(stateFloat,dtype=float)
-  # currentPars = np.array([arc1,arc2,wav],dtype=float)
-  # tolerance = np.array([tol],dtype=float)
-  # stateDiff = np.subtract(tolerance,np.abs(np.subtract(statePars,currentPars)))
-  # floatMatch = stateDiff>=0 # elements will be negative if out of tolerance
+    print('Most recent matching file:',mostRecentFile)
+    print('Created: %s'% time.ctime(os.path.getctime(mostRecentFile)))
 
-  # #second check: that integer parameters match exactly
-  # statePars = np.array(stateInt,dtype=int)
-  # currentPars = np.array([guide],dtype=int)
-  # stateDiff = np.subtract(statePars,currentPars)
-  # intMatch = stateDiff==0 #indicates exact match
-
-  # #combine both checks
-  # fullMatch = np.concatenate((floatMatch,intMatch),axis=1)
-  
-  # #confirm if there is a matching pre-defined state and, if not, allow option to create a new one
-  # (nState,npars) = fullMatch.shape
-  # for i in range(nState):
-  #   if np.all(fullMatch[i]):
-  #     #print('statelabel is: ',stateLabel[i])
-  #     SNAPState = ''.join(stateLabel[i][:])
-  #     print('match found for state:',stateHRName[i],'\n with stateID:',SNAPState)
-  #     return SNAPState
-  # SNAPState = '0000' #convey that no matching state was found
-  return   
+  return mostRecentFile
 
