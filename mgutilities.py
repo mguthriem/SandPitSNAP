@@ -637,6 +637,7 @@ def checkSNAPState(floatPar,intPar):
   if newStatePar == 0:
     print('State consistent with SNAP Dictionary')
   else:
+    #need to add check that there more than 10 parameters will be created
     togCreateNewDict = input('\nNon-Dictionary values found. Add new values to SNAP Dictionary? (y/[n])\n'\
       '(n.b. only possible if you are an instrument scientist): ')
     if togCreateNewDict.lower() == 'y':
