@@ -635,7 +635,7 @@ def checkSNAPState(floatPar,intPar):
     print('State consistent with SNAP Dictionary\n')
   else:
     #need to add check that there more than 10 parameters will be created
-    togCreateNewDict = input('\nNon-Dictionary values found. Add new values to SNAP Dictionary? (y/[n])\n'\
+    togCreateNewDict = builtins.input('\nNon-Dictionary values found. Add new values to SNAP Dictionary? (y/[n])\n'\
       '(n.b. only possible if you are an instrument scientist): ')
     if togCreateNewDict.lower() == 'y':
       #print('Adding new default values to SNAP Dictionary')
@@ -661,7 +661,7 @@ def checkSNAPState(floatPar,intPar):
     else:
       stateID = line.strip()[0:7]
       if provisionalStateID==stateID:
-        print('Match found for state:\n\n',line)
+        print('\nMatch found for state: %s\n\n'%(stateID),line,'\n')
         stateIDMatch = True
         fin.close()
         break
@@ -669,8 +669,8 @@ def checkSNAPState(floatPar,intPar):
   
 
   if not stateIDMatch:
-    print('Current state does not exist in State List')
-    togCreateNewList=builtins.input('Create new state (y/[n])?')
+    print('')
+    togCreateNewList=builtins.input('WARNING: Current state does not exist in State List! Create new state (y/[n])?')
     #togCreateNewList
     if togCreateNewList.lower()=='y':
       now = date.today()
