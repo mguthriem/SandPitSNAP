@@ -47,9 +47,9 @@ class SNAPConfigurator(PythonAlgorithm):
             #
             print('guide status is:',GuideIn)
             DeleteWorkspace(Workspace='Dummy2')
-            stateID = mg.getSNAPStateID(det_arc1,det_arc2,wav,[1.0,1.0,0.1],GuideIn,0)
-            if stateID=='0000' #no match was found
-                mg.createSNAPStateID('short name',det_arc1,det_arc2,wav,GuideIn)
+            stateID = mg.checkSNAPState([det_arc1,det_arc2,wav,0.0],[GuideIn,0])
+            #if stateID=='0000' #no match was found
+            #    mg.createSNAPStateID('short name',det_arc1,det_arc2,wav,GuideIn)
 
 
             

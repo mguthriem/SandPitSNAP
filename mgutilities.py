@@ -449,7 +449,7 @@ def iceVol(a):
 
   return p_hem
 
-def getSNAPStateID(arc1,arc2,wav,tol,guide,spare):
+# def getSNAPStateID(arc1,arc2,wav,tol,guide,spare):
   #This function will return instrument state ID a short string of integers
   #encoding the main experimental parameters of the SNAP instrument, which must be provided
   #There are two types of parameters.
@@ -561,14 +561,11 @@ def checkSNAPState(floatPar,intPar):
   #This function will find the most recent SNAP StateList, make a copy,
   # with the new state appended. 
 
-  #import glob
   import os
-  import time
-  
-  #import os.path, time
+  import time 
   from datetime import datetime, date
+  import builtins #bug whereby a different piece of code (not mine) redefined built in function input 
   
-  #getConfigDict(FName)
   
   #Find the most recent StateDict and read it
   print('\nLooking up most recent State Dictionary...')
@@ -635,7 +632,7 @@ def checkSNAPState(floatPar,intPar):
   #If supplied values don't match SNAP Dictionary, may want to create new dictionary with these included 
 
   if newStatePar == 0:
-    print('State consistent with SNAP Dictionary')
+    print('State consistent with SNAP Dictionary\n')
   else:
     #need to add check that there more than 10 parameters will be created
     togCreateNewDict = input('\nNon-Dictionary values found. Add new values to SNAP Dictionary? (y/[n])\n'\
@@ -664,7 +661,7 @@ def checkSNAPState(floatPar,intPar):
     else:
       stateID = line.strip()[0:7]
       if provisionalStateID==stateID:
-        print('Match found for state:',line)
+        print('Match found for state:\n\n',line)
         stateIDMatch = True
         fin.close()
         break
@@ -673,7 +670,8 @@ def checkSNAPState(floatPar,intPar):
 
   if not stateIDMatch:
     print('Current state does not exist in State List')
-    togCreateNewList=input('Create new state (y/[n])?')
+    togCreateNewList=builtins.input('Create new state (y/[n])?')
+    #togCreateNewList
     if togCreateNewList.lower()=='y':
       now = date.today()
       newListFile = '/SNS/SNAP/shared/Calibration/SNAPStateList_' + now.strftime("%Y%m%d") + '.txt'
@@ -681,9 +679,9 @@ def checkSNAPState(floatPar,intPar):
       fout.writelines(lines)#copy existing state ID's to new file
       acceptableName = False
       while not acceptableName:
-        shortTitle = input('provide short (up to 15 character) title for state: ')
+        shortTitle = builtins.input('provide short (up to 15 character) title for state: ')
         shortTitle = shortTitle[0:15].ljust(15)
-        confirm = input('confirm title: '+shortTitle+' ([y]/n): ')
+        confirm = builtins.input('confirm title: '+shortTitle+' ([y]/n): ')
         if confirm.lower()=='y':
           acceptableName=True
       
@@ -691,7 +689,7 @@ def checkSNAPState(floatPar,intPar):
                     shortTitle + '::' + \
                     '%s/%s::'%(stateStr[0],stateStr[1]) + \
                     'wavelength=%s::'%(stateStr[2]) + \
-                    stateStr[4] + '\n'
+                    stateStr[4]
       fout.write(newStateStr)
       fout.close()
       print('Created updated state list:',newListFile)
