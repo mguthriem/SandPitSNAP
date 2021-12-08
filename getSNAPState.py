@@ -48,6 +48,13 @@ except:
     fail = True
 
 try:
+    freq = logRun.getLogData('BL3:Det:TH:BL:Frequency').value[0]
+    print('frequency setting is:',freq, 'Hz')
+except:
+    print('ERROR: Nexus file doesn\'t contain value for central wavelength')
+    fail = True
+
+try:
     GuideIn = logRun.getLogData('BL3:Mot:OpticsPos:Pos').value[0]
     print('guide status is:',GuideIn)
 except:
@@ -57,7 +64,7 @@ print('/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_')
 
 
 if not fail:
-    stateID = mg.checkSNAPState([det_arc1,det_arc2,wav,0.0],[GuideIn,0])
+    stateID = mg.checkSNAPState([det_arc1,det_arc2,wav,freq,0.0],[GuideIn,0])
 else:
     print('Insufficient log data, can\'t determine state')
 DeleteWorkspace(Workspace='Dummy2')
