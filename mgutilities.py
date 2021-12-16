@@ -515,6 +515,7 @@ def checkSNAPState(floatPar,intPar):
       guideStatus = keyID
     intStateID += str(keyID)
 
+# This is where the guide status is set...
   if guideStatus == 0:
     stateStr.append('FlightTube')
   elif guideStatus ==1:
@@ -541,6 +542,8 @@ def checkSNAPState(floatPar,intPar):
     else:
       pass #default is to move on without doing anything.
   
+# -- testing editing from guest end --- #
+
   #As a final step, confirm if present state is a defined SNAP state and, if not, allow option to create new state
   fnameStateList = findMostRecentFile('/SNS/SNAP/shared/Calibration/SNAPStateList_*.txt')
 
@@ -663,3 +666,57 @@ def findMostRecentFile(pattern):
 
   return mostRecentFile
 
+def getSNAPPars(wsName):
+#returns stateID for an existing mantid workspace (which must contain logs)
+  from mantid.simpleapi import mtd
+  
+  ws = mtd[wsName]
+  logRun = ws.getRun()
+
+  # get log data from nexus file
+  print('\n/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_')
+  print('Log Values:')
+  fail = False
+  try:
+      det_arc1 = logRun.getLogData('det_arc1').value[0]
+      print('det_arc1 is:',det_arc1)
+  except:
+      print('ERROR: Nexus file doesn\'t contain value for det_arc1')
+      fail = True
+
+  try:    
+      det_arc2 = logRun.getLogData('det_arc2').value[0]
+      print('det_arc2 is:',det_arc2)
+  except:
+      print('ERROR: Nexus file doesn\'t contain value for det_arc2')
+      fail = True
+
+  try:
+      wav = logRun.getLogData('BL3:Chop:Skf1:WavelengthUserReq').value[0]
+      print('wav Skf1 wavelengthUserReq is:',wav, 'Ang.')
+  except:
+      print('ERROR: Nexus file doesn\'t contain value for central wavelength')
+      fail = True
+
+  try:
+      freq = logRun.getLogData('BL3:Det:TH:BL:Frequency').value[0]
+      print('frequency setting is:',freq, 'Hz')
+  except:
+      print('ERROR: Nexus file doesn\'t contain value for central wavelength')
+      fail = True
+
+  try:
+      GuideIn = logRun.getLogData('BL3:Mot:OpticsPos:Pos').value[0]
+      print('guide status is:',GuideIn)
+  except:
+      print('ERROR: Nexus file doesn\'t contain guide status')
+      fail = True
+  print('/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_')
+
+
+  if not fail:
+      stateID = checkSNAPState([det_arc1,det_arc2,wav,freq,0.0],[GuideIn,0])
+  else:
+      print('Insufficient log data, can\'t determine state')
+  #DeleteWorkspace(Workspace='Dummy2')
+  return stateID
