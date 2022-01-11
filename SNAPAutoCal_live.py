@@ -36,6 +36,7 @@ except:
 if calibrant =='diamond':
     print('Expecting a diamond powder dataset')
     peaksToFit = '2.0595,1.2612,1.0755, 0.8918, 0.8183'
+    #peaksToFit = '1.2612'
     #Diamond peak positions from Shikata et al J. Appl. Phys 57, 111301 (2018).
     #First 3 peak are: 2.05947,1.26116,1.07552
 elif calibrant =='lab6':
@@ -52,19 +53,21 @@ else:
 pks = peaksToFit.split(',')
 nPks = len(pks)
 
-IPTSLoc = GetIPTS(RunNumber=run,Instrument='SNAP')
-inputFile = IPTSLoc + '/nexus/SNAP_%s'%(run) + '.nxs.h5'
+calFile = 'snapLive4'
+
+#IPTSLoc = GetIPTS(RunNumber=run,Instrument='SNAP')
+#inputFile = IPTSLoc + '/nexus/SNAP_%s'%(run) + '.nxs.h5'
 # check file exists
-if not exists(inputFile):
-    print('error! input nexus file does not exist')
-    raise StopExecution
+#if not exists(inputFile):
+#    print('error! input nexus file does not exist')
+#    raise StopExecution
     #sys.exit() #terminate
 # load nexus file and determine instrument state
-LoadEventNexus(Filename=inputFile, OutputWorkspace='calFile')
-stateID = mg.getSNAPPars('calFile')
+#LoadEventNexus(Filename=inputFile, OutputWorkspace='calFile')
+stateID = mg.getSNAPPars(calFile)
 
 # Fit DIFCs and Zeros
-SumNeighbours(InputWorkspace='calFile', OutputWorkspace='calFile_8x8', SumX=8, SumY=8)
+SumNeighbours(InputWorkspace=calFile, OutputWorkspace='calFile_8x8', SumX=8, SumY=8)
 
 #Show user plot of input data to allow inspection (and sanity check)
 
@@ -75,7 +78,8 @@ tog = str(tog).strip().lower()
 #tog = 'y'
 if tog =='n':
     print('OK. STOPPING!')
-    raise StopExecution
+    sys.exit()
+    #raise StopExecution
 
 #print('starting to fit spectra...')
 
@@ -86,6 +90,7 @@ PDCalibration(InputWorkspace='calFile_8x8', TofBinning='1500,10,16000',\
 
 
 mg.gridPlot(['calFile_8x8','_diag_fitted'],[],[[1584,2786,7567],[16851,13808,10802]],[],[],[],'Sample spectra')
+
 
 
 # Save temp copy of calibration File to correct State folder.
@@ -173,7 +178,7 @@ if tog =='y':
     xData = [] 
     yData = []
     fitted_pks = []
-    interpx = np.linspace(40.0,120.0,20)
+    interpx = np.linspace(40.0,120.0,6)
     nSpec=0
     for i in range(nPks):
         
@@ -229,18 +234,14 @@ if tog =='y':
 
 #check if all is OK then output final calibration...
 calibFilename = stateFolder + 'SNAP_calibrate_d%s_'%(run)+ now.strftime("%Y%m%d") + '.h5'
-tog = input('Happy with calibration? Save file (y,[n] or tmp)?\n(tmp will store in /SNS/SNAP/shared/temp): ')
+tog = input('Happy with calibration? Save file ([y],n):?')
 tog = str(tog).strip().lower()
-if tog =='y':
-    print(calibFilename)
-    SaveDiffCal(CalibrationWorkspace='_cal',Filename=calibFilename)
-if tog =='tmp':
-    print('Saving file to /SNS/SNAP/shared/temp/')
-    calibFilename = '/SNS/SNAP/shared/temp/' + 'SNAP_calibrate_d%s_'%(run)+ now.strftime("%Y%m%d") + '.h5'
-    SaveDiffCal(CalibrationWorkspace='_cal',Filename=calibFilename)
-else:
+if tog =='n':
     print('Finished')
     sys.exit()
+else:
+    print(calibFilename)
+    SaveDiffCal(CalibrationWorkspace='_cal',Filename=calibFilename)
 
 #Lastly clean up unused workspaces
 ##DeleteWorkspace('_cal')

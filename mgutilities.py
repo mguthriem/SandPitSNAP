@@ -11,6 +11,22 @@ def d2Q(listOfd):
     inQ = [2*np.pi/x for x in listOfd]
     return inQ
 
+def workbench_MessageBox(text1,text2,text3,text4):
+  from qtpy.QtWidgets import QMessageBox
+  msg = QMessageBox()
+  msg.setIcon(QMessageBox.Information)
+
+  msg.setText(text1)
+  msg.setInformativeText(text2)
+  msg.setWindowTitle(text3)
+  msg.setDetailedText(text4)
+  msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+  #msg.buttonClicked.connect(msgbtn)
+  retval = msg.exec_()
+  print('value of pressed message box button:', retval)
+  return retval
+
+
 def workbench_input_fn(dTitle,dInstruction,inpType):
   from qtpy.QtWidgets import QInputDialog
   
@@ -54,6 +70,8 @@ def gridPlot(WSNames,xlims,SpectrumMap,inLegend,TickMarks,ROILims,plotName):
   import matplotlib.pyplot as plt
   import numpy as np
   from mantid.api import AnalysisDataService as ADS
+  from matplotlib import interactive
+  #interactive(True)
 
   #print('version is 1.0')
   nWS = len(WSNames) #number of ws to plot
@@ -152,8 +170,10 @@ def gridPlot(WSNames,xlims,SpectrumMap,inLegend,TickMarks,ROILims,plotName):
     axes[0][j].set_xlabel('')
     axes[1][j].set_xlabel(axisXLabel)
 
-  legend = axes[0][0].legend(fontsize=8.0).draggable().legend
-  plt.show()    
+  #legend = axes[0][0].legend(fontsize=8.0).draggable().legend
+  #print('NOTICE: Close plot window to continue')
+  plt.show()
+  #tog = input('enter anything to continue:')    
   return
 
 def genHstNameLst(rootName,nHst):
@@ -718,5 +738,6 @@ def getSNAPPars(wsName):
       stateID = checkSNAPState([det_arc1,det_arc2,wav,freq,0.0],[GuideIn,0])
   else:
       print('Insufficient log data, can\'t determine state')
+      stateID='00000-00'
   #DeleteWorkspace(Workspace='Dummy2')
   return stateID
